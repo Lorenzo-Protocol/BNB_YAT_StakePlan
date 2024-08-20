@@ -277,8 +277,8 @@ contract StakePlanHub is
      * @dev set stake plan available, this function can only called by Lorenzo Admin.
      * open or close stake plan.
      *
-     * @param planId_: The name of stake plan.
-     * @param available_: The symbol of stake plan.
+     * @param planId_: The planId_ of stake plan.
+     * @param available_: true or false.
      */
     function setStakePlanAvailable(
         uint256 planId_,
@@ -293,16 +293,62 @@ contract StakePlanHub is
         return true;
     }
 
+    /**
+     * @dev set merkle root for loop stake, staker can claim next plan yat.
+     *
+     * @param planId_: The planId_ of stake plan.
+     * @param merkleRoot_: The merkle root of claim tree.
+     */
     function setMerkleRoot(
         uint256 planId_,
-        bytes32 merkleRoot
+        bytes32 merkleRoot_
     ) external override whenNotPaused onlyLorenzoAdmin {
         address stakePlanAddr = _stakePlanMap[planId_];
         if (stakePlanAddr == address(0)) {
             revert InvalidPlanId();
         }
-        IStakePlan(stakePlanAddr).setMerkleRoot(merkleRoot);
-        emit MerkleRootSet(planId_, merkleRoot);
+        IStakePlan(stakePlanAddr).setMerkleRoot(merkleRoot_);
+        emit MerkleRootSet(planId_, merkleRoot_);
+    }
+
+    /**
+     * @dev mint YAT for lorenzo staker which use native btc to stake plan.
+     * this function can only called by Lorenzo Admin.
+     *
+     * @param planId_: The planId_ of stake plan.
+     * @param account_: The array address of staker.
+     * @param yatAmount_: The array amount of YAT can claim.
+     * @param hash_: The array hash of lorenzo tx proof.
+     */
+    function mintYATFromLorenzo(
+        uint256 planId_,
+        address[] calldata account_,
+        uint256[] calldata yatAmount_,
+        bytes32[] calldata hash_
+    ) external override whenNotPaused onlyLorenzoAdmin {
+        address stakePlanAddr = _stakePlanMap[planId_];
+        if (stakePlanAddr == address(0)) {
+            revert InvalidPlanId();
+        }
+        if (
+            account_.length == 0 ||
+            account_.length != yatAmount_.length ||
+            account_.length != hash_.length
+        ) {
+            revert InvalidParam();
+        }
+        for (uint i = 0; i < account_.length; i++) {
+            if (
+                account_[i] == address(0x0) ||
+                yatAmount_[i] == 0 ||
+                hash_[i] == bytes32(0) ||
+                _hashUsedMap[hash_[i]]
+            ) {
+                revert InvalidParam();
+            }
+            IStakePlan(stakePlanAddr).mintYAT(account_[i], yatAmount_[i]);
+            _hashUsedMap[hash_[i]] = true;
+        }
     }
 
     /// ***************************************

@@ -21,8 +21,15 @@ interface IStakePlanHub {
     function stakeBTC2JoinStakePlan(
         uint256 planId_,
         address btcContractAddress_,
-        uint256 stakeAmount
+        uint256 stakeAmount_
     ) external;
 
-    function setMerkleRoot(uint256 planId, bytes32 newMerkleRoot_) external;
+    function setMerkleRoot(uint256 planId_, bytes32 newMerkleRoot_) external;
+
+    function mintYATFromLorenzo(
+        uint256 planId_,
+        address[] calldata account_,
+        uint256[] calldata yatAmount_,
+        bytes32[] calldata hash_
+    ) external;
 }

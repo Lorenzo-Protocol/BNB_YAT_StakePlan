@@ -12,6 +12,7 @@ abstract contract StakePlanHubStorage {
     mapping(uint256 => address) public _stakePlanMap;
     mapping(uint256 => address) public _stakePlanCustodyAddress_;
     mapping(uint256 => bool) public _stakePlanAvailableMap;
+    mapping(bytes32 => bool) public _hashUsedMap;
 
     uint256 public _stakePlanCounter;
 }
