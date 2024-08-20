@@ -2,14 +2,15 @@
 
 pragma solidity 0.8.20;
 
-import {DataTypes} from "../libraries/DataTypes.sol";
-
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
  */
 interface IStakePlanHub {
     function createNewPlan(
-        DataTypes.CreateNewPlanData calldata vars
+        string memory name_,
+        string memory symbol_,
+        address custodyAddress_,
+        uint256 stakePlanStartTime_
     ) external returns (uint256);
 
     function setStakePlanAvailable(
@@ -22,4 +23,6 @@ interface IStakePlanHub {
         address btcContractAddress_,
         uint256 stakeAmount
     ) external;
+
+    function setMerkleRoot(uint256 planId, bytes32 newMerkleRoot_) external;
 }

@@ -2,15 +2,14 @@
 pragma solidity 0.8.20;
 
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {IERC20Metadata, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IStakePlanHub} from "../interfaces/IStakePlanHub.sol";
 import {IStakePlan} from "../interfaces/IStakePlan.sol";
 import {StakePlanHubStorage} from "../storage/StakePlanHubStorage.sol";
-import {DataTypes} from "../libraries/DataTypes.sol";
 import {IstBTCMintAuthority} from "../interfaces/IstBTCMintAuthority.sol";
+import {StakePlan} from "./StakePlan.sol";
 
 /**
  * @title StakePlanHub
@@ -20,9 +19,8 @@ import {IstBTCMintAuthority} from "../interfaces/IstBTCMintAuthority.sol";
  * create new stake plan by lorenzo admin and stakers stake btc & withdraw stBTC functionality.
  *
  * NOTE: StakePlanHub is used to create new stake plan by Lorenzo Admin, and then user can stake BTC(ERC20), eg: WBTC/BTCB to participant in the stake plan.
- *      1. user can stake erc20 btc token to join a stake plan between _subscriptionStartTime and _subscriptionEndTime.
- *      2. after subscription finished. Lorenzo will withdraw all erc20 btc and convert to native btc, then stake to Babylon protocol, also will mint YAT token to stakers in Lorenzo chain, user can claim reward in lorenzo chain when get reward from babylon.
- *      3. after _subscriptionStartTime, user can claim stBTC according to their erc20 btc staked amount. stBTC is the liquidity token launched by Lorenzo Protocol.
+ *      1. user can stake erc20 btc token to join a stake plan after stake plan available. will get stBTC and YAT token.
+ *      2. Lorenzo will withdraw all erc20 btc and convert to native btc, then stake to Babylon protocol, user can claim reward by YAT in future.
  *
  */
 contract StakePlanHub is
@@ -34,7 +32,7 @@ contract StakePlanHub is
     using SafeERC20 for IERC20;
 
     error NoPermission();
-    error InvalidTime();
+    error InvalidParam();
     error InvalidAddress();
     error InvalidPlanId();
     error InvalidBTCContractAddress();
@@ -42,7 +40,6 @@ contract StakePlanHub is
 
     event Initialize(
         address indexed gov,
-        address indexed stakePlanImpl,
         address indexed lorenzoAdmin,
         address mintstBTCAuthorityAddress_
     );
@@ -62,29 +59,15 @@ contract StakePlanHub is
         address indexed newGovernance
     );
 
-    event StakePlanImplSet(
-        address indexed preStakePlanImpl,
-        address indexed newStakePlanImpl
-    );
-
     event SetStakePlanAvailable(uint256 indexed planId, bool available);
+    event MerkleRootSet(uint256 indexed roundId, bytes32 merkleRoot);
 
     event CreateNewPlan(
         uint256 indexed planId,
-        uint256 indexed agentId,
-        address indexed derivedStakePlanAddr,
+        address indexed stakePlanAddr,
         uint256 stakePlanStartTime,
-        uint256 periodTime,
         string name,
-        string symbol,
-        string descUri
-    );
-
-    event WithdrawBTC(
-        uint256 indexed planId,
-        address indexed to,
-        address btcContractAddress,
-        uint256 balance
+        string symbol
     );
 
     event StakeBTC2JoinStakePlan(
@@ -124,22 +107,19 @@ contract StakePlanHub is
     }
 
     /**
-     * @dev Initializes the YATStakePlanHub, setting the initial gov_/stakePlanImpl_/lorenzoAdmin_/mintstBTCAuthorityAddress_.
+     * @dev Initializes the YATStakePlanHub, setting the initial gov_/lorenzoAdmin_/mintstBTCAuthorityAddress_.
      *
      * @param gov_ The governance address to set.
-     * @param stakePlanImpl_ The address to set for the stake plan contract.
      * @param lorenzoAdmin_ The lorenzo admin address to set.
      * @param stBTCMintAuthorityAddress_ The mint stBTC authority address to set.
      */
     function initialize(
         address gov_,
-        address stakePlanImpl_,
         address lorenzoAdmin_,
         address stBTCMintAuthorityAddress_
     ) external initializer {
         if (
             gov_ == address(0) ||
-            stakePlanImpl_ == address(0) ||
             lorenzoAdmin_ == address(0) ||
             stBTCMintAuthorityAddress_ == address(0)
         ) {
@@ -147,16 +127,10 @@ contract StakePlanHub is
         }
         __Pausable_init();
         _governance = gov_;
-        _stakePlanImpl = stakePlanImpl_;
         _lorenzoAdmin = lorenzoAdmin_;
         _stBTCMintAuthorityAddress = stBTCMintAuthorityAddress_;
 
-        emit Initialize(
-            _governance,
-            _stakePlanImpl,
-            _lorenzoAdmin,
-            stBTCMintAuthorityAddress_
-        );
+        emit Initialize(_governance, _lorenzoAdmin, stBTCMintAuthorityAddress_);
     }
 
     /// ***************************************
@@ -213,21 +187,6 @@ contract StakePlanHub is
     }
 
     /**
-     * @dev Sets the stake plan implement address, which is a template contract for create stake plan. This function
-     * can only be called by the governance address.
-     *
-     * @param newStakePlanImpl_ The new stake plan contract address to set.
-     */
-    function setStakePlanImpl(address newStakePlanImpl_) external onlyGov {
-        if (newStakePlanImpl_ == address(0)) {
-            revert InvalidAddress();
-        }
-        address preStakePlanImpl = _stakePlanImpl;
-        _stakePlanImpl = newStakePlanImpl_;
-        emit StakePlanImplSet(preStakePlanImpl, _stakePlanImpl);
-    }
-
-    /**
      * @dev add which btc contract address be supported by lorenzo stake plan. eg: WBTC/BTCB/... This function
      * can only be called by the governance address.
      *
@@ -268,32 +227,6 @@ contract StakePlanHub is
         }
     }
 
-    /**
-     * @dev withdraw erc20 btc from stake plan contract address. This function
-     * can only be called by the governance address.
-     * revert if stake plan subcription end time not reach.
-     *
-     * @param planId_ The plan id of stake plan.
-     * @param to_ The address to receive erc20 btc.
-     */
-    function withdrawBTC(uint256 planId_, address to_) external onlyGov {
-        address derivedStakePlanAddr = _stakePlanMap[planId_];
-        if (derivedStakePlanAddr == address(0)) {
-            revert InvalidPlanId();
-        }
-        if (to_ == address(0)) {
-            revert InvalidAddress();
-        }
-        for (uint256 i = 0; i < _btcContractAddressSet.length(); i++) {
-            address btcContractAddress = _btcContractAddressSet.at(i);
-            uint256 balance = IStakePlan(derivedStakePlanAddr).withdrawBTC(
-                btcContractAddress,
-                to_
-            );
-            emit WithdrawBTC(planId_, to_, btcContractAddress, balance);
-        }
-    }
-
     /// ***************************************
     /// *****LorenzoAdmin FUNCTIONS*****
     /// ***************************************
@@ -314,26 +247,39 @@ contract StakePlanHub is
      * @dev create new stake plan, this function can only called by Lorenzo Admin.
      * 1. revert if subscription not suitable.
      *
-     * @param vars_ A CreateNewPlanData struct containing the following params:
-     *
-     * - name: The name of stake plan.
-     * - symbol: The symbol of stake plan.
-     * - descUri: The desc uri of stake plan.
-     * - agentId: The agent id of stake plan.
-     * - stakePlanStartTime: The start time of stake plan.
-     * - periodTime: The period time of stake plan.
+     * @param name_: The name of stake plan.
+     * @param symbol_: The symbol of stake plan.
+     * @param custodyAddress_: The custody address of stake plan.
+     * @param stakePlanStartTime_: The start time of stake plan.
      */
     function createNewPlan(
-        DataTypes.CreateNewPlanData calldata vars_
+        string memory name_,
+        string memory symbol_,
+        address custodyAddress_,
+        uint256 stakePlanStartTime_
     ) external override whenNotPaused onlyLorenzoAdmin returns (uint256) {
         if (
-            block.timestamp >= vars_.stakePlanStartTime || vars_.periodTime == 0
+            block.timestamp >= stakePlanStartTime_ ||
+            custodyAddress_ == address(0x0)
         ) {
-            revert InvalidTime();
+            revert InvalidParam();
         }
-        return _createNewPlan(vars_);
+        return
+            _createNewPlan(
+                name_,
+                symbol_,
+                custodyAddress_,
+                stakePlanStartTime_
+            );
     }
 
+    /**
+     * @dev set stake plan available, this function can only called by Lorenzo Admin.
+     * open or close stake plan.
+     *
+     * @param planId_: The name of stake plan.
+     * @param available_: The symbol of stake plan.
+     */
     function setStakePlanAvailable(
         uint256 planId_,
         bool available_
@@ -347,6 +293,18 @@ contract StakePlanHub is
         return true;
     }
 
+    function setMerkleRoot(
+        uint256 planId_,
+        bytes32 merkleRoot
+    ) external override whenNotPaused onlyLorenzoAdmin {
+        address stakePlanAddr = _stakePlanMap[planId_];
+        if (stakePlanAddr == address(0)) {
+            revert InvalidPlanId();
+        }
+        IStakePlan(stakePlanAddr).setMerkleRoot(merkleRoot);
+        emit MerkleRootSet(planId_, merkleRoot);
+    }
+
     /// ***************************************
     /// *****EXTERNAL FUNCTIONS*****
     /// ***************************************
@@ -356,15 +314,15 @@ contract StakePlanHub is
      *
      * @param planId_ The plan id of stake plan.
      * @param btcContractAddress_ The erc20 btc contract address(WBTC/BTCB).
-     * @param stakeAmount The amount of erc20 btc to stake.
+     * @param stakeAmount_ The amount of erc20 btc to stake.
      */
     function stakeBTC2JoinStakePlan(
         uint256 planId_,
         address btcContractAddress_,
-        uint256 stakeAmount
+        uint256 stakeAmount_
     ) external override whenNotPaused {
-        address derivedStakePlanAddr = _stakePlanMap[planId_];
-        if (derivedStakePlanAddr == address(0)) {
+        address stakePlanAddr = _stakePlanMap[planId_];
+        if (stakePlanAddr == address(0) || stakeAmount_ == 0) {
             revert InvalidPlanId();
         }
         if (!_btcContractAddressSet.contains(btcContractAddress_)) {
@@ -375,29 +333,31 @@ contract StakePlanHub is
         }
 
         uint decimal = IERC20Metadata(btcContractAddress_).decimals();
-        uint256 stBTCAmount = (stakeAmount * (10 ** 18)) / (10 ** decimal);
+        uint256 stBTCAmount = (stakeAmount_ * (10 ** 18)) / (10 ** decimal);
 
+        address custodyAddress = _stakePlanCustodyAddress_[planId_];
+
+        //transfer BTCB to custody address
         IERC20(btcContractAddress_).safeTransferFrom(
             msg.sender,
-            derivedStakePlanAddr,
-            stakeAmount
+            custodyAddress,
+            stakeAmount_
         );
 
+        //mint stBTC
         IstBTCMintAuthority(_stBTCMintAuthorityAddress).mint(
             msg.sender,
             stBTCAmount
         );
 
-        IStakePlan(derivedStakePlanAddr).recordStakeStBTC(
-            msg.sender,
-            stBTCAmount
-        );
+        //mint YAT
+        IStakePlan(stakePlanAddr).mintYAT(msg.sender, stBTCAmount);
 
         emit StakeBTC2JoinStakePlan(
             msg.sender,
             planId_,
             btcContractAddress_,
-            stakeAmount,
+            stakeAmount_,
             stBTCAmount
         );
     }
@@ -418,36 +378,25 @@ contract StakePlanHub is
     /// ***************************************
 
     function _createNewPlan(
-        DataTypes.CreateNewPlanData calldata vars_
+        string memory name_,
+        string memory symbol_,
+        address custodyAddress_,
+        uint256 stakePlanStartTime_
     ) internal returns (uint256) {
         uint256 planId = _stakePlanCounter++;
-        address derivedStakePlanAddr = _deployDerivedStakePlan(planId, vars_);
-        _stakePlanMap[planId] = derivedStakePlanAddr;
+        address stakePlanAddr = address(
+            new StakePlan(name_, symbol_, planId, stakePlanStartTime_)
+        );
+        _stakePlanMap[planId] = stakePlanAddr;
+        _stakePlanCustodyAddress_[planId] = custodyAddress_;
 
         emit CreateNewPlan(
             planId,
-            vars_.agentId,
-            derivedStakePlanAddr,
-            vars_.stakePlanStartTime,
-            vars_.periodTime,
-            vars_.name,
-            vars_.symbol,
-            vars_.descUri
+            stakePlanAddr,
+            stakePlanStartTime_,
+            name_,
+            symbol_
         );
         return planId;
-    }
-
-    function _deployDerivedStakePlan(
-        uint256 planId_,
-        DataTypes.CreateNewPlanData calldata vars_
-    ) internal returns (address) {
-        address derivedStakePlanAddr = Clones.cloneDeterministic(
-            _stakePlanImpl,
-            keccak256(abi.encodePacked(planId_))
-        );
-
-        IStakePlan(derivedStakePlanAddr).initialize(planId_, vars_);
-
-        return derivedStakePlanAddr;
     }
 }

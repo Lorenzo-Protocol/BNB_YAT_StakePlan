@@ -2,43 +2,46 @@
 pragma solidity 0.8.20;
 
 import {IStakePlan} from "../interfaces/IStakePlan.sol";
-import {DataTypes} from "../libraries/DataTypes.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
  * @title StakePlan
  * @author Leven
  *
- * @notice This is StakePlan Implement contract. It contains all the infomation of stake plan as well as
- * receive erc20 btc and withdraw by Lorenzo and for user to claim stBTC functionality.
+ * @notice This is StakePlan YAT contract. It contains all the infomation of YAT as well as
+ * receive erc20 btc by Lorenzo.
  *
  * NOTE: all of functions can only called by StakePlanHub contract.
  *
  */
-contract StakePlan is IStakePlan {
-    using SafeERC20 for IERC20;
-
-    error Initialized();
-    error InitParamsInvalid();
+contract StakePlan is IStakePlan, ERC20 {
+    error EmptyMerkleRoot();
     error NotYATHub();
-    error CanNotStakeBeforeStartTime();
+    error AlreadyClaimed();
+    error InvalidMerkleProof();
+    error PlanNotStart();
 
-    string public _name;
-    string public _symbol;
-    string public _descUri;
+    event ClaimYATToken(
+        uint256 indexed planId,
+        uint256 indexed roundId,
+        address indexed account,
+        uint256 amount
+    );
+    event MerkleRootSet(
+        uint256 indexed planId,
+        uint256 indexed roundId,
+        bytes32 merkleRoot
+    );
+
     uint256 public _planId;
-    uint256 public _agentId;
     uint256 public _stakePlanStartTime;
-    uint256 public _periodTime;
-    uint256 public _nextRewardReceiveTime;
+    uint256 public _roundId;
 
-    mapping(address => uint) public _userStakeInfo;
-    uint256 public _totalRaisedStBTC;
+    address public STAKE_PLAN_HUB;
 
-    bool private _initialized;
-
-    address public immutable STAKE_PLAN_HUB;
+    mapping(uint256 => mapping(bytes32 => bool)) private _claimLeafNode; // claim leaf node
+    mapping(uint256 => bytes32) private _merkleRoot; //merkle root for claim YAT token
 
     /**
      * @dev This modifier reverts if the caller is not the stake plan hub contract.
@@ -51,77 +54,73 @@ contract StakePlan is IStakePlan {
     }
 
     /**
-     * @dev The constructor sets the immutable stake plan hub & stbtc contract address.
+     * @dev The constructor sets YAT name & symbol and recoed the stake hub address.
      *
-     * @param stakePlanHub_ The stake plan contract address.
      */
-    constructor(address stakePlanHub_) {
-        if (stakePlanHub_ == address(0)) revert InitParamsInvalid();
-        STAKE_PLAN_HUB = stakePlanHub_;
-        _initialized = true;
-    }
-
-    /**
-     * @dev Initializes the follow NFT, setting the hub as the privileged minter and storing the associated profile ID.
-     *
-     * @param planId_ The plan id of stake plan.
-     * @param vars_ A CreateNewPlanData struct.
-     */
-    function initialize(
+    constructor(
+        string memory name_,
+        string memory symbol_,
         uint256 planId_,
-        DataTypes.CreateNewPlanData calldata vars_
-    ) external override {
-        if (_initialized) revert Initialized();
-        _initialized = true;
+        uint256 stakePlanStartTime_
+    ) ERC20(name_, symbol_) {
         _planId = planId_;
-
-        _name = vars_.name;
-        _symbol = vars_.symbol;
-        _descUri = vars_.descUri;
-        _agentId = vars_.agentId;
-        _stakePlanStartTime = vars_.stakePlanStartTime;
-        _periodTime = vars_.periodTime;
-        _nextRewardReceiveTime = _stakePlanStartTime + _periodTime;
+        _stakePlanStartTime = stakePlanStartTime_;
+        STAKE_PLAN_HUB = msg.sender;
     }
 
     /**
-     * @dev record how many stBTC each staker can claim after the stake plan subscription end.
+     * @dev mint yat to staker.
      *
-     * revert if the blocktime is not between start and end time of this stake plan.
+     * only call from stake plan hub contract.
      *
      * @param staker_ the address of staker.
-     * @param amount_ the amount of stBTC staker can claim.
+     * @param amount_ the amount of YAT can claim.
      */
-    function recordStakeStBTC(
-        address staker_,
-        uint256 amount_
-    ) external onlyHub {
+    function mintYAT(address staker_, uint256 amount_) external onlyHub {
         if (block.timestamp < _stakePlanStartTime) {
-            revert CanNotStakeBeforeStartTime();
+            revert PlanNotStart();
         }
-        if (block.timestamp > _nextRewardReceiveTime) {
-            _nextRewardReceiveTime = _nextRewardReceiveTime + _periodTime;
+        _mint(staker_, amount_);
+    }
+
+    function setMerkleRoot(bytes32 newMerkleRoot_) external onlyHub {
+        if (newMerkleRoot_ == bytes32(0)) {
+            revert EmptyMerkleRoot();
         }
-        _userStakeInfo[staker_] += amount_;
-        _totalRaisedStBTC += amount_;
+        uint256 roundId = _roundId++;
+        _merkleRoot[roundId] = newMerkleRoot_;
+        emit MerkleRootSet(_planId, roundId, newMerkleRoot_);
     }
 
     /**
-     * @dev withdraw erc20 btc from this stake plan contract.
+     * @dev for user to claim YAT token
      *
-     * revert if subscription of stake plan not finished.
-     *
-     * @param btcContractAddress the erc20 btc contract address(WBTC/BTCB/...).
-     * @param withdrawer the address which receive erc20 btc.
+     * @param account_ claim YAT token account
+     * @param roundId_ claim round id
+     * @param amount_ claim YAT token amount
+     * @param merkleProof_ merkle proof
      */
-    function withdrawBTC(
-        address btcContractAddress,
-        address withdrawer
-    ) external onlyHub returns (uint256) {
-        uint256 balance = IERC20(btcContractAddress).balanceOf(address(this));
-        if (balance > 0) {
-            IERC20(btcContractAddress).safeTransfer(withdrawer, balance);
+    function claimYATToken(
+        address account_,
+        uint256 roundId_,
+        uint256 amount_,
+        bytes32[] calldata merkleProof_
+    ) external returns (bool) {
+        if (_merkleRoot[roundId_] == bytes32(0)) {
+            revert EmptyMerkleRoot();
         }
-        return balance;
+        bytes32 leafNode = keccak256(abi.encodePacked(account_, amount_));
+        if (_claimLeafNode[roundId_][leafNode]) {
+            revert AlreadyClaimed();
+        }
+        if (
+            !MerkleProof.verify(merkleProof_, _merkleRoot[roundId_], leafNode)
+        ) {
+            revert InvalidMerkleProof();
+        }
+        _claimLeafNode[roundId_][leafNode] = true;
+        _mint(account_, amount_);
+        emit ClaimYATToken(_planId, roundId_, account_, amount_);
+        return true;
     }
 }
