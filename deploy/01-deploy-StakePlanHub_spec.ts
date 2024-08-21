@@ -8,11 +8,7 @@ import {
 const deployFn: DeployFunction = async (hre) => {
   const [ deployer, , stake_planer ] = await ethers.getSigners();
 
-  const stBTCMintAuthority = await getContractFromArtifact(
-    hre,
-    "stBTCMintAuthority"
-  )
-  const stBTCMintAuthorityAddress = await stBTCMintAuthority.getAddress();
+  const stBTCMintAuthorityAddress = "0xcF93cD03eD618A31688860e01F450f9989764e87";
 
   const StakePlanHub = await ethers.getContractFactory("StakePlanHub", stake_planer);
   const proxy = await upgrades.deployProxy(StakePlanHub, [deployer.address, deployer.address, stBTCMintAuthorityAddress]);
