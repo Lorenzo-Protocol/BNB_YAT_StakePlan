@@ -278,18 +278,18 @@ contract StakePlanHub is
      * open or close stake plan.
      *
      * @param planId_: The planId_ of stake plan.
-     * @param available_: true or false.
+     * @param paused_: true or false.
      */
     function setStakePlanAvailable(
         uint256 planId_,
-        bool available_
+        bool paused_
     ) external override whenNotPaused onlyLorenzoAdmin returns (bool) {
         address derivedStakePlanAddr = _stakePlanMap[planId_];
         if (derivedStakePlanAddr == address(0)) {
             revert InvalidPlanId();
         }
-        _stakePlanAvailableMap[planId_] = available_;
-        emit SetStakePlanAvailable(planId_, available_);
+        _stakePlanPausedMap[planId_] = paused_;
+        emit SetStakePlanAvailable(planId_, paused_);
         return true;
     }
 
@@ -301,13 +301,14 @@ contract StakePlanHub is
      */
     function setMerkleRoot(
         uint256 planId_,
+        uint256 roundId_,
         bytes32 merkleRoot_
     ) external override whenNotPaused onlyLorenzoAdmin {
         address stakePlanAddr = _stakePlanMap[planId_];
         if (stakePlanAddr == address(0)) {
             revert InvalidPlanId();
         }
-        IStakePlan(stakePlanAddr).setMerkleRoot(merkleRoot_);
+        IStakePlan(stakePlanAddr).setMerkleRoot(roundId_, merkleRoot_);
         emit MerkleRootSet(planId_, merkleRoot_);
     }
 
@@ -374,7 +375,7 @@ contract StakePlanHub is
         if (!_btcContractAddressSet.contains(btcContractAddress_)) {
             revert InvalidBTCContractAddress();
         }
-        if (_stakePlanAvailableMap[planId_]) {
+        if (_stakePlanPausedMap[planId_]) {
             revert StakePlanNotAvailable();
         }
 

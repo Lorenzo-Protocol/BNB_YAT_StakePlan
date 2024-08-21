@@ -21,6 +21,7 @@ contract StakePlan is IStakePlan, ERC20 {
     error AlreadyClaimed();
     error InvalidMerkleProof();
     error PlanNotStart();
+    error InvalidParams();
 
     event ClaimYATToken(
         uint256 indexed planId,
@@ -83,9 +84,15 @@ contract StakePlan is IStakePlan, ERC20 {
         _mint(staker_, amount_);
     }
 
-    function setMerkleRoot(bytes32 newMerkleRoot_) external onlyHub {
+    function setMerkleRoot(
+        uint256 roundId_,
+        bytes32 newMerkleRoot_
+    ) external onlyHub {
         if (newMerkleRoot_ == bytes32(0)) {
             revert EmptyMerkleRoot();
+        }
+        if (_roundId != roundId_) {
+            revert InvalidParams();
         }
         uint256 roundId = _roundId++;
         _merkleRoot[roundId] = newMerkleRoot_;
@@ -109,7 +116,10 @@ contract StakePlan is IStakePlan, ERC20 {
         if (_merkleRoot[roundId_] == bytes32(0)) {
             revert EmptyMerkleRoot();
         }
-        bytes32 leafNode = keccak256(abi.encodePacked(account_, amount_));
+        //bytes32 leafNode = keccak256(abi.encodePacked(account_, amount_));
+        bytes32 leafNode = keccak256(
+            bytes.concat(keccak256(abi.encode(account_, amount_)))
+        );
         if (_claimLeafNode[roundId_][leafNode]) {
             revert AlreadyClaimed();
         }

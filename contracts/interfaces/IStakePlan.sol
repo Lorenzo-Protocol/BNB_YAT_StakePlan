@@ -8,5 +8,5 @@ pragma solidity 0.8.20;
 interface IStakePlan {
     function mintYAT(address staker_, uint256 amount_) external;
 
-    function setMerkleRoot(bytes32 newMerkleRoot_) external;
+    function setMerkleRoot(uint256 roundId_, bytes32 newMerkleRoot_) external;
 }

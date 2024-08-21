@@ -24,7 +24,11 @@ interface IStakePlanHub {
         uint256 stakeAmount_
     ) external;
 
-    function setMerkleRoot(uint256 planId_, bytes32 newMerkleRoot_) external;
+    function setMerkleRoot(
+        uint256 planId_,
+        uint256 roundId_,
+        bytes32 newMerkleRoot_
+    ) external;
 
     function mintYATFromLorenzo(
         uint256 planId_,
