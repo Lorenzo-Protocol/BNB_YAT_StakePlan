@@ -37,6 +37,7 @@ contract StakePlanHub is
     error InvalidPlanId();
     error InvalidBTCContractAddress();
     error StakePlanNotAvailable();
+    error EmptyMerkleRoot();
 
     event Initialize(
         address indexed gov,
@@ -232,7 +233,7 @@ contract StakePlanHub is
     /// *****LorenzoAdmin FUNCTIONS*****
     /// ***************************************
 
-    function adminPauseBridge() external onlyLorenzoAdmin {
+    function adminPause() external onlyLorenzoAdmin {
         _pause();
     }
 
@@ -240,7 +241,7 @@ contract StakePlanHub is
         @notice Unpauses deposits, proposal creation and voting, and deposit executions.
         @notice Only callable by an address that currently has the admin role.
      */
-    function adminUnpauseBridge() external onlyLorenzoAdmin {
+    function adminUnpause() external onlyLorenzoAdmin {
         _unpause();
     }
 
@@ -305,6 +306,9 @@ contract StakePlanHub is
         uint256 roundId_,
         bytes32 merkleRoot_
     ) external override whenNotPaused onlyLorenzoAdmin {
+        if (merkleRoot_ == bytes32(0)) {
+            revert EmptyMerkleRoot();
+        }
         address stakePlanAddr = _stakePlanMap[planId_];
         if (stakePlanAddr == address(0)) {
             revert InvalidPlanId();

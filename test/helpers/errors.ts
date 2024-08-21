@@ -5,9 +5,10 @@ export const ERRORS = {
   OwnableUnauthorizedAccount: 'OwnableUnauthorizedAccount',
   NoPermission: 'NoPermission',
   EnforcedPause: 'EnforcedPause',
-  InvalidTime: 'InvalidTime',
+  InvalidParam: 'InvalidParam',
   InvalidPlanId: 'InvalidPlanId',
   InvalidBTCContractAddress: 'InvalidBTCContractAddress',
   StakePlanNotAvailable: 'StakePlanNotAvailable',
+  EmptyMerkleRoot: 'EmptyMerkleRoot',
 };
   

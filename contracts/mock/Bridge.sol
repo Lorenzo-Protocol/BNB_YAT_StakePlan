@@ -269,7 +269,7 @@ contract Bridge is
         }
     }
 
-    function adminPauseBridge() external onlyOwner {
+    function adminPause() external onlyOwner {
         _pause();
     }
 
@@ -277,7 +277,7 @@ contract Bridge is
         @notice Unpauses deposits, proposal creation and voting, and deposit executions.
         @notice Only callable by an address that currently has the admin role.
      */
-    function adminUnpauseBridge() external onlyOwner {
+    function adminUnpause() external onlyOwner {
         _unpause();
     }
 

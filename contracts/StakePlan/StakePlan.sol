@@ -16,7 +16,6 @@ import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProo
  *
  */
 contract StakePlan is IStakePlan, ERC20 {
-    error EmptyMerkleRoot();
     error NotYATHub();
     error AlreadyClaimed();
     error InvalidMerkleProof();
@@ -41,8 +40,8 @@ contract StakePlan is IStakePlan, ERC20 {
 
     address public STAKE_PLAN_HUB;
 
-    mapping(uint256 => mapping(bytes32 => bool)) private _claimLeafNode; // claim leaf node
-    mapping(uint256 => bytes32) private _merkleRoot; //merkle root for claim YAT token
+    mapping(uint256 => mapping(bytes32 => bool)) public _claimLeafNode; // claim leaf node
+    mapping(uint256 => bytes32) public _merkleRoot; //merkle root for claim YAT token
 
     /**
      * @dev This modifier reverts if the caller is not the stake plan hub contract.
@@ -88,9 +87,6 @@ contract StakePlan is IStakePlan, ERC20 {
         uint256 roundId_,
         bytes32 newMerkleRoot_
     ) external onlyHub {
-        if (newMerkleRoot_ == bytes32(0)) {
-            revert EmptyMerkleRoot();
-        }
         if (_roundId != roundId_) {
             revert InvalidParams();
         }
@@ -113,10 +109,6 @@ contract StakePlan is IStakePlan, ERC20 {
         uint256 amount_,
         bytes32[] calldata merkleProof_
     ) external returns (bool) {
-        if (_merkleRoot[roundId_] == bytes32(0)) {
-            revert EmptyMerkleRoot();
-        }
-        //bytes32 leafNode = keccak256(abi.encodePacked(account_, amount_));
         bytes32 leafNode = keccak256(
             bytes.concat(keccak256(abi.encode(account_, amount_)))
         );

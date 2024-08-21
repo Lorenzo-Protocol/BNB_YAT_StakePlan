@@ -15,18 +15,15 @@ import {
     btcb,
     stakePlanHubAddress,
     deployerAddress,
+    custodyAddress,
 } from '../__setup.spec';
 import { ERRORS } from '../helpers/errors';
 import { ethers } from 'hardhat';
-import { ZERO_ADDRESS } from '../helpers/constants';
-  
-let oldTime = parseInt((new Date().getTime() / 1000 ).toFixed(0)) - 3600
+import { BYTES32_MERKLE_ROOT, BYTES32_ZERO_ADDRESS, ZERO_ADDRESS } from '../helpers/constants';
+
 let stakePlanStartTime = parseInt((new Date().getTime() / 1000 ).toFixed(0)) + 3600
-let periodTime = parseInt((new Date().getTime() / 1000 ).toFixed(0)) + 7 * 24 * 3600
 let name = "Stake Plan 1"
 let symbol = "SP1"
-let descUri = "https://www.google.com"
-let agentId = 1
 let mintAmount = ethers.parseEther("100")
 let stakeAmount = ethers.parseEther("1")
 
@@ -40,14 +37,12 @@ makeSuiteCleanRoom('Stake BTC to Join StakePlan', function () {
             await expect(stBTC.connect(stBTC_deployer).setNewMinterContract(stBTCMintAuthorityAddress)).to.be.not.reverted;
             await expect(stBTCMintAuthority.connect(deployer).setMinter(stakePlanHubAddress)).to.be.not.reverted;
 
-            await expect(stakePlanHub.connect(deployer).createNewPlan({
-                name: name,
-                symbol: symbol,
-                descUri: descUri,
-                agentId: agentId,
-                stakePlanStartTime: stakePlanStartTime,
-                periodTime: periodTime
-            })).to.be.not.reverted
+            await expect(stakePlanHub.connect(deployer).createNewPlan(
+                name,
+                symbol,
+                custodyAddress,
+                stakePlanStartTime
+            )).to.be.not.reverted
         });
 
         context('Negatives', async function () {
@@ -72,16 +67,46 @@ makeSuiteCleanRoom('Stake BTC to Join StakePlan', function () {
                 await expect(stakePlanHub.connect(user).stakeBTC2JoinStakePlan(0, BTCBAddress, stakeAmount)).to.be.reverted
             });
 
-            it('failed to withdraw BTCB if use invalid planid', async function () {
-                await expect(stakePlanHub.connect(deployer).withdrawBTC(1, deployerAddress)).to.be.revertedWithCustomError(stakePlanHub, ERRORS.InvalidPlanId);
+            it('failed to set merkle root if invaild planId', async function () {
+                await expect(stakePlanHub.connect(deployer).setMerkleRoot(1, 0, BYTES32_MERKLE_ROOT)).to.be.revertedWithCustomError(stakePlanHub, ERRORS.InvalidPlanId);
             });
 
-            it('failed to withdraw BTCB if no permission', async function () {
-                await expect(stakePlanHub.connect(user).withdrawBTC(1, deployerAddress)).to.be.revertedWithCustomError(stakePlanHub, ERRORS.NoPermission);
+            it('failed to set merkle root if empty bytes32', async function () {
+                await expect(stakePlanHub.connect(deployer).setMerkleRoot(0, 0, BYTES32_ZERO_ADDRESS)).to.be.revertedWithCustomError(stakePlanHub, ERRORS.EmptyMerkleRoot);
             });
 
-            it('failed to withdraw BTCB if use zero address', async function () {
-                await expect(stakePlanHub.connect(deployer).withdrawBTC(0, ZERO_ADDRESS)).to.be.revertedWithCustomError(stakePlanHub, ERRORS.InvalidAddress);
+            it('failed to set merkle root if not admin', async function () {
+                await expect(stakePlanHub.connect(user).setMerkleRoot(0, 0, BYTES32_MERKLE_ROOT)).to.be.revertedWithCustomError(stakePlanHub, ERRORS.NoPermission);
+            });
+
+            it('failed to set merkle root if pause', async function () {
+                await expect(stakePlanHub.connect(deployer).adminPause()).to.be.not.reverted
+                await expect(stakePlanHub.connect(deployer).setMerkleRoot(0, 0, BYTES32_MERKLE_ROOT)).to.be.revertedWithCustomError(stakePlanHub, ERRORS.EnforcedPause);
+            });
+
+            it('failed to mint YAT if invaild planId', async function () {
+                await expect(stakePlanHub.connect(deployer).mintYATFromLorenzo(1, [uesrAddress], [stakeAmount], [BYTES32_MERKLE_ROOT])).to.be.revertedWithCustomError(stakePlanHub, ERRORS.InvalidPlanId);
+            });
+
+            it('failed to mint YAT if not admin', async function () {
+                await expect(stakePlanHub.connect(user).mintYATFromLorenzo(0, [uesrAddress], [stakeAmount], [BYTES32_MERKLE_ROOT])).to.be.revertedWithCustomError(stakePlanHub, ERRORS.NoPermission);
+            });
+
+            it('failed to mint YAT if arr length not equal', async function () {
+                await expect(stakePlanHub.connect(deployer).mintYATFromLorenzo(0, [], [stakeAmount], [BYTES32_MERKLE_ROOT])).to.be.revertedWithCustomError(stakePlanHub, ERRORS.InvalidParam);
+            });
+
+            it('failed to mint YAT if arr var eligal', async function () {
+                await expect(stakePlanHub.connect(deployer).mintYATFromLorenzo(0, [uesrAddress], [0], [BYTES32_MERKLE_ROOT])).to.be.revertedWithCustomError(stakePlanHub, ERRORS.InvalidParam);
+            });
+
+            it('failed to mint YAT if use same hash', async function () {
+                await ethers.provider.send("evm_increaseTime", [2 * 3600]);
+                await expect(stakePlanHub.connect(deployer).mintYATFromLorenzo(0, [uesrAddress, uesrAddress], [100,100], [BYTES32_MERKLE_ROOT, BYTES32_MERKLE_ROOT])).to.be.revertedWithCustomError(stakePlanHub, ERRORS.InvalidParam);
+            });
+
+            it('failed to mint YAT if use same hash', async function () {
+                await expect(stakePlanHub.connect(deployer).mintYATFromLorenzo(0, [uesrAddress], [100], [BYTES32_MERKLE_ROOT])).to.be.reverted
             });
         })
         context('Scenarios', async function () {
@@ -89,7 +114,7 @@ makeSuiteCleanRoom('Stake BTC to Join StakePlan', function () {
             it('update valiable if stake successful', async function () {
                 const stakePlanAddr = await stakePlanHub.connect(deployer)._stakePlanMap(0)
                 const stakePlan = StakePlan__factory.connect(stakePlanAddr);
-                expect(await stakePlan.connect(deployer)._totalRaisedStBTC()).to.be.equal(0);
+                expect(await stakePlan.connect(deployer).totalSupply()).to.be.equal(0);
                 
                 await ethers.provider.send("evm_increaseTime", [2 * 3600]);
                 await expect(btcb.connect(user).mint(uesrAddress, mintAmount)).to.be.not.reverted
@@ -98,17 +123,17 @@ makeSuiteCleanRoom('Stake BTC to Join StakePlan', function () {
                 await expect(stakePlanHub.connect(user).stakeBTC2JoinStakePlan(0, BTCBAddress, stakeAmount)).to.be.not.reverted
 
                 expect(await btcb.balanceOf(uesrAddress)).to.be.eq(mintAmount - stakeAmount);
-                expect(await btcb.balanceOf(stakePlanAddr)).to.be.eq(stakeAmount);
+                expect(await btcb.balanceOf(custodyAddress)).to.be.eq(stakeAmount);
                 expect(await btcb.balanceOf(deployerAddress)).to.be.eq(0);
 
                 expect(await stBTC.balanceOf(uesrAddress)).to.be.eq(stakeAmount);
+            });
 
-                expect(await stakePlan.connect(deployer)._totalRaisedStBTC()).to.be.equal(stakeAmount);
-                expect(await stakePlan.connect(deployer)._userStakeInfo(uesrAddress)).to.be.equal(stakeAmount);
-
-                await expect(stakePlanHub.connect(deployer).withdrawBTC(0, deployerAddress)).to.be.not.reverted
-                expect(await btcb.balanceOf(deployerAddress)).to.be.eq(stakeAmount);
-                expect(await btcb.balanceOf(stakePlanAddr)).to.be.eq(0);
+            it('get correct value if set merkle root success', async function () {
+                const stakePlanAddr = await stakePlanHub.connect(deployer)._stakePlanMap(0)
+                await expect(stakePlanHub.connect(deployer).setMerkleRoot(0, 0, BYTES32_MERKLE_ROOT)).to.be.not.reverted
+                const stakePlan = StakePlan__factory.connect(stakePlanAddr);
+                expect(await stakePlan.connect(deployer)._merkleRoot(0)).to.be.equal(BYTES32_MERKLE_ROOT);
             });
         })
     })

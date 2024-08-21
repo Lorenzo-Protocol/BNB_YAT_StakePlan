@@ -4,18 +4,19 @@ import {
   revertToSnapshot,
   takeSnapshot,
 } from './helpers/utils';
-import { Bridge, Bridge__factory, BTCB, BTCB__factory, StakePlan, StakePlan__factory, StakePlanHub, StakePlanHub__factory, StBTC, StBTC__factory, StBTCMintAuthority, StBTCMintAuthority__factory } from '../typechain-types';
-import {getContractAddress} from '@ethersproject/address';
+import { Bridge, Bridge__factory, BTCB, BTCB__factory, StakePlanHub, StakePlanHub__factory, StBTC, StBTC__factory, StBTCMintAuthority, StBTCMintAuthority__factory } from '../typechain-types';
 import { NativeToken } from './helpers/constants';
 
 export let accounts: Signer[];
 export let deployer: Signer;
 export let stBTC_deployer: Signer;
 export let user: Signer;
+export let custody: Signer;
 
 export let deployerAddress: string;
 export let stBTCDeployerAddress: string;
 export let uesrAddress: string;
+export let custodyAddress: string;
 
 export let stBTC: StBTC;
 export let stBTCAddress: string;
@@ -24,8 +25,6 @@ export let bridgeProxy: Bridge;
 export let stBTCMintAuthority: StBTCMintAuthority;
 export let stBTCMintAuthorityAddress: string;
 
-export let stakePlan: StakePlan;
-export let stakePlanAddress: string;
 export let stakePlanHub: StakePlanHub;
 export let stakePlanHubAddress: string;
 
@@ -50,10 +49,13 @@ before(async function () {
   deployer = accounts[0];
   stBTC_deployer = accounts[1];
   user = accounts[2];
+  custody = accounts[3];
 
   deployerAddress = await deployer.getAddress();
   stBTCDeployerAddress = await stBTC_deployer.getAddress();
   uesrAddress = await user.getAddress();
+  custodyAddress = await custody.getAddress();
+
 
   stBTC = await new StBTC__factory(stBTC_deployer).deploy();
   stBTCAddress = await stBTC.getAddress();
@@ -75,19 +77,9 @@ before(async function () {
   console.log("bridgeProxy admin address: ", await upgrades.erc1967.getAdminAddress(bridgeProxyAddress))
   console.log("bridgeProxy implement address: ", await upgrades.erc1967.getImplementationAddress(bridgeProxyAddress))
   bridgeProxy = Bridge__factory.connect(bridgeProxyAddress, stBTC_deployer);
- 
-  const deployerNonce = await deployer.getNonce();
-  const expectStakePlanHubAddress = getContractAddress({
-    from: deployerAddress,
-    nonce: deployerNonce + 2
-  })
-  console.log("expect expectStakePlanHubAddress: ", expectStakePlanHubAddress)
-  stakePlan = await new StakePlan__factory(deployer).deploy(expectStakePlanHubAddress);
-  stakePlanAddress = await stakePlan.getAddress();
-  console.log("stakePlanAddress address: ", stakePlanAddress)
 
   const StakePlanHub = await ethers.getContractFactory("StakePlanHub");
-  const stakePlanProxy = await upgrades.deployProxy(StakePlanHub, [deployerAddress, stakePlanAddress, deployerAddress, stBTCMintAuthorityAddress]);
+  const stakePlanProxy = await upgrades.deployProxy(StakePlanHub, [deployerAddress, deployerAddress, stBTCMintAuthorityAddress]);
   await stakePlanProxy.waitForDeployment()
   const stakePlanProxyAddress = await stakePlanProxy.getAddress()
   console.log("stakePlanProxy address: ", stakePlanProxyAddress)
