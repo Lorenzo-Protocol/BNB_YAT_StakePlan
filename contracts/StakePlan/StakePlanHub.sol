@@ -288,7 +288,7 @@ contract StakePlanHub is
         if (derivedStakePlanAddr == address(0)) {
             revert InvalidPlanId();
         }
-        _stakePlanPausedMap[planId_] = paused_;
+        _stakePlanAvailableMap[planId_] = paused_;
         emit SetStakePlanAvailable(planId_, paused_);
         return true;
     }
@@ -375,7 +375,7 @@ contract StakePlanHub is
         if (!_btcContractAddressSet.contains(btcContractAddress_)) {
             revert InvalidBTCContractAddress();
         }
-        if (_stakePlanPausedMap[planId_]) {
+        if (_stakePlanAvailableMap[planId_]) {
             revert StakePlanNotAvailable();
         }
 

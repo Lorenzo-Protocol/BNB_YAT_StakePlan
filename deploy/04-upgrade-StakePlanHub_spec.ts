@@ -6,7 +6,7 @@ import { ethers, upgrades } from 'hardhat';
 const deployFn: DeployFunction = async (hre) => {
   const [ deployer, stBTC_deployer, stake_planer ] = await ethers.getSigners();
 
-  const proxyAddr = "";
+  const proxyAddr = "0x5c23c303679D67fc78c9A204B1aB49232b464af1";
   const StakePlanHub = await ethers.getContractFactory("StakePlanHub", stake_planer);
   const proxy = await upgrades.upgradeProxy(proxyAddr, StakePlanHub);
   await proxy.waitForDeployment()
@@ -18,6 +18,6 @@ const deployFn: DeployFunction = async (hre) => {
 }
 
 // This is kept during an upgrade. So no upgrade tag.
-deployFn.tags = ['UpgradeStakePlan']
+deployFn.tags = ['UpgradeStakePlanHub']
 
 export default deployFn
