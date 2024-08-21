@@ -16,7 +16,7 @@ const deployFn: DeployFunction = async (hre) => {
   const mintstBTCAuthorityAddress = await stBTCMintAuthority.getAddress();
 
 
-  const stakePlanHub_proxy = "0x9ADb675bc89d9EC5d829709e85562b7c99658D59";
+  const stakePlanHub_proxy = "0x5c23c303679D67fc78c9A204B1aB49232b464af1";
   const bridge_proxy = "0xb7C0817Dd23DE89E4204502dd2C2EF7F57d3A3B8";
   const stBTCAddress = "0x2a45dE58552F2C5E0597d1FbB8eC83F7E2dDBa0D"
 
