@@ -15,26 +15,6 @@ const config: HardhatUserConfig = {
     hardhat: {
       gas: 29000000,
     },
-    bitlayer_testnet: {
-      chainId: 200810,
-      url: process.env.BITLAYER_TESTNET_RPC_URL || '',
-      accounts: [bridge_deployer, stBTC_deployer, stake_planer],
-    },
-    bitlayer_mainnet: {
-      chainId: 200901,
-      url: process.env.BITLAYER_MAINNET_RPC_URL || '',
-      accounts: [bridge_deployer, stBTC_deployer, stake_planer],
-    },
-    lrz_testnet: {
-      chainId: 83291,
-      url: process.env.LORENZO_TESTNET_RPC_URL || '',
-      accounts: [bridge_deployer, stBTC_deployer, stake_planer],
-    },
-    lrz_mainnet: {
-      chainId: 8329,
-      url: process.env.LORENZO_MAINNET_RPC_URL || '',
-      accounts: [bridge_deployer, stBTC_deployer, stake_planer],
-    },
     bsc_testnet: {
       chainId: 97,
       url: process.env.BSC_TESTNET_RPC_URL || '',
@@ -59,20 +39,9 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: {
-      lrz_mainnet: ' ',
       bscTestnet: process.env.BSC_SCAN_API_KEY || ' ',
       bsc: process.env.BSC_SCAN_API_KEY || ' ',
-    },
-    customChains: [
-      {
-        network: "lrz_mainnet",
-        chainId: 8329,
-        urls: {
-         apiURL: "https://scan.lorenzo-protocol.xyz/api",
-         browserURL: "https://scan.lorenzo-protocol.xyz"
-        }
-      }
-    ]
+    }
   }
 };
 
