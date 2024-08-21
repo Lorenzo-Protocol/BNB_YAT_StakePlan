@@ -71,9 +71,10 @@ contract StakePlanHub is
     );
 
     event StakeBTC2JoinStakePlan(
-        address indexed user,
+        uint256 indexed stakeIndex,
         uint256 indexed planId,
-        address indexed btcContractAddress,
+        address indexed user,
+        address btcContractAddress,
         uint256 stakeAmount,
         uint256 stBTCAmount
     );
@@ -400,9 +401,11 @@ contract StakePlanHub is
         //mint YAT
         IStakePlan(stakePlanAddr).mintYAT(msg.sender, stBTCAmount);
 
+        uint256 stakeIndex = _stakeIndex++;
         emit StakeBTC2JoinStakePlan(
-            msg.sender,
+            stakeIndex,
             planId_,
+            msg.sender,
             btcContractAddress_,
             stakeAmount_,
             stBTCAmount

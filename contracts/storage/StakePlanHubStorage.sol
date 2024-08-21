@@ -15,4 +15,5 @@ abstract contract StakePlanHubStorage {
     mapping(bytes32 => bool) public _hashUsedMap;
 
     uint256 public _stakePlanCounter;
+    uint256 public _stakeIndex;
 }
