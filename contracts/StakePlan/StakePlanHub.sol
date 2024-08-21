@@ -62,6 +62,11 @@ contract StakePlanHub is
 
     event SetStakePlanAvailable(uint256 indexed planId, bool available);
     event MerkleRootSet(uint256 indexed roundId, bytes32 merkleRoot);
+    event MintYATFromLorenzo(
+        uint256 indexed planId,
+        address indexed account,
+        uint256 yatAmount
+    );
 
     event CreateNewPlan(
         uint256 indexed planId,
@@ -354,6 +359,7 @@ contract StakePlanHub is
             }
             IStakePlan(stakePlanAddr).mintYAT(account_[i], yatAmount_[i]);
             _hashUsedMap[hash_[i]] = true;
+            emit MintYATFromLorenzo(planId_, account_[i], yatAmount_[i]);
         }
     }
 
