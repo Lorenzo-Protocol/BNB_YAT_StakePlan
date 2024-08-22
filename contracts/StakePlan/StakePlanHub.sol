@@ -443,12 +443,13 @@ contract StakePlanHub is
         address custodyAddress_,
         uint256 stakePlanStartTime_
     ) internal returns (uint256) {
-        uint256 planId = _stakePlanCounter++;
+        uint256 planId = _stakePlanCounter + 1;
         address stakePlanAddr = address(
             new StakePlan(name_, symbol_, planId, stakePlanStartTime_)
         );
         _stakePlanMap[planId] = stakePlanAddr;
         _stakePlanCustodyAddress_[planId] = custodyAddress_;
+        _stakePlanCounter = _stakePlanCounter + 1;
 
         emit CreateNewPlan(
             planId,
