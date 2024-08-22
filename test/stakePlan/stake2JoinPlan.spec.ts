@@ -135,6 +135,21 @@ makeSuiteCleanRoom('Stake BTC to Join StakePlan', function () {
                 const stakePlan = StakePlan__factory.connect(stakePlanAddr);
                 expect(await stakePlan.connect(deployer)._merkleRoot(0)).to.be.equal(BYTES32_MERKLE_ROOT);
             });
+
+            it('claim success when use right merkle proof', async function () {
+                const merkle_root = "0x5c0581109e581b4bb812e6878e8902568ecd1a18bf80157ef00d51260445676f"
+                const uesrAddress = "0x72281a602539d2e31a1129dee7d26c4960c8f787"
+                const stakePlanAddr = await stakePlanHub.connect(deployer)._stakePlanMap(0)
+                const amount = 1100000000000000
+                const proof = [
+                    "0x870e0de6f527e21577df0e9cc268dff962021f84f9aadee476a02c69fd8a849b", "0xb661dc594388ef9a2f3ac181cf38ff7c3e86f8bebc73d0a94c4c7295164f4e2e", "0x9376fb8fa44bd06b70cacccfff69fc6eddb9e7e9c08f84854ff3f0593207e1d8", "0x2d7cc73bc23da434410683a43b47b69b17571106df88b4dd9bd1230b5fb8c7a8", "0x06a769ba2ffcd27fd298c84d177604ab6b788aa1c1e5864d48fd60b8ddf5b1a4" 
+                ]
+                await expect(stakePlanHub.connect(deployer).setMerkleRoot(0, 0, merkle_root)).to.be.not.reverted
+                const stakePlan = StakePlan__factory.connect(stakePlanAddr);
+                expect(await stakePlan.connect(deployer)._merkleRoot(0)).to.be.equal(merkle_root);
+                await expect(stakePlan.connect(deployer).claimYATToken(uesrAddress, 0, amount, proof)).to.be.not.reverted;
+                expect(await stakePlan.connect(deployer).balanceOf(uesrAddress)).to.equal(amount);
+            });
         })
     })
 })
