@@ -63,7 +63,8 @@ makeSuiteCleanRoom('create stake plan', function () {
         context('Scenarios', async function () {
 
             it('get correct valiable if create stake plan succcess', async function () {
-                expect(await stakePlanHub.connect(deployer)._stakePlanMap(0)).to.be.equal(ZERO_ADDRESS)
+                expect(await stakePlanHub.connect(deployer)._stakePlanMap(1)).to.be.equal(ZERO_ADDRESS)
+                expect(await stakePlanHub.connect(deployer)._stakePlanMap(2)).to.be.equal(ZERO_ADDRESS)
                 await expect(stakePlanHub.connect(deployer).createNewPlan(
                     name,
                     symbol,
@@ -72,14 +73,30 @@ makeSuiteCleanRoom('create stake plan', function () {
                 )).to.be.not.reverted
 
                 expect(await stakePlanHub.connect(deployer)._stakePlanCounter()).to.be.equal(1);
-                expect(await stakePlanHub.connect(deployer)._stakePlanMap(0)).to.be.not.equal(ZERO_ADDRESS)
-                const stakePlanAddr = await stakePlanHub.connect(deployer)._stakePlanMap(0)
+                expect(await stakePlanHub.connect(deployer)._stakePlanMap(1)).to.be.not.equal(ZERO_ADDRESS)
+                const stakePlanAddr = await stakePlanHub.connect(deployer)._stakePlanMap(1)
                 const stakePlan = StakePlan__factory.connect(stakePlanAddr)
 
-                expect(await stakePlan.connect(deployer)._planId()).to.be.equal(0);
+                expect(await stakePlan.connect(deployer)._planId()).to.be.equal(1);
                 expect(await stakePlan.connect(deployer).name()).to.be.equal(name);
                 expect(await stakePlan.connect(deployer).symbol()).to.be.equal(symbol);
                 expect(await stakePlan.connect(deployer)._stakePlanStartTime()).to.be.equal(stakePlanStartTime);
+
+                await expect(stakePlanHub.connect(deployer).createNewPlan(
+                    name,
+                    symbol,
+                    custodyAddress,
+                    stakePlanStartTime
+                )).to.be.not.reverted
+                expect(await stakePlanHub.connect(deployer)._stakePlanCounter()).to.be.equal(2);
+                expect(await stakePlanHub.connect(deployer)._stakePlanMap(2)).to.be.not.equal(ZERO_ADDRESS)
+                const stakePlanAddr1 = await stakePlanHub.connect(deployer)._stakePlanMap(1)
+                const stakePlan1 = StakePlan__factory.connect(stakePlanAddr)
+
+                expect(await stakePlan1.connect(deployer)._planId()).to.be.equal(1);
+                expect(await stakePlan1.connect(deployer).name()).to.be.equal(name);
+                expect(await stakePlan1.connect(deployer).symbol()).to.be.equal(symbol);
+                expect(await stakePlan1.connect(deployer)._stakePlanStartTime()).to.be.equal(stakePlanStartTime);
             });
         })
     })

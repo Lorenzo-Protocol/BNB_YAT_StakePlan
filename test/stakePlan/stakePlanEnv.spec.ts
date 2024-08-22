@@ -60,7 +60,7 @@ makeSuiteCleanRoom('Modify env', function () {
             });
 
             it('failed to setStakePlanAvailable if invalide plan id', async function () {
-                await expect(stakePlanHub.connect(deployer).setStakePlanAvailable(1, true)).to.be.revertedWithCustomError(stakePlanHub, ERRORS.InvalidPlanId);
+                await expect(stakePlanHub.connect(deployer).setStakePlanAvailable(2, true)).to.be.revertedWithCustomError(stakePlanHub, ERRORS.InvalidPlanId);
             });
         })
         context('Scenarios', async function () {
@@ -93,7 +93,7 @@ makeSuiteCleanRoom('Modify env', function () {
                 await expect(stakePlanHub.connect(deployer).setGovernance(uesrAddress)).to.be.not.reverted
                 expect(await stakePlanHub.connect(deployer)._governance()).to.be.equal(uesrAddress);
 
-                await expect(stakePlanHub.connect(user).setStakePlanAvailable(0, true)).to.be.not.reverted
+                await expect(stakePlanHub.connect(user).setStakePlanAvailable(1, true)).to.be.not.reverted
             });
         })
     })
