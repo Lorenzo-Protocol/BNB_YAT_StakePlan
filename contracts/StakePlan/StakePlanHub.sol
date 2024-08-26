@@ -238,22 +238,6 @@ contract StakePlanHub is
     /// *****LorenzoAdmin FUNCTIONS*****
     /// ***************************************
 
-    function resetContractStorge(
-        uint256 planId,
-        bytes32[] calldata usedHash
-    ) external whenNotPaused onlyLorenzoAdmin {
-        _stakePlanCounter = 0;
-        _stakeIndex = 0;
-        for (uint i = 0; i <= planId; i++) {
-            delete _stakePlanMap[i];
-            delete _stakePlanCustodyAddress_[i];
-            delete _stakePlanAvailableMap[i];
-        }
-        for (uint i = 0; i < usedHash.length; i++) {
-            delete _hashUsedMap[usedHash[i]];
-        }
-    }
-
     function adminPause() external onlyLorenzoAdmin {
         _pause();
     }
