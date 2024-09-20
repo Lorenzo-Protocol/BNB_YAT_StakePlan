@@ -37,6 +37,7 @@ contract StakePlanHub is
     error InvalidBTCContractAddress();
     error StakePlanNotAvailable();
     error SendETHFailed();
+    error StakeAmountLessThanYatCrossMintFee();
 
     event Initialize(
         address indexed gov,
@@ -58,6 +59,8 @@ contract StakePlanHub is
         address indexed preGovernance,
         address indexed newGovernance
     );
+
+    event SetCrossMintYatFee(uint256 preCrossMintFee, uint256 newCrossMintFee);
 
     event SetStakePlanAvailable(uint256 indexed planId, bool available);
 
@@ -221,6 +224,12 @@ contract StakePlanHub is
         }
     }
 
+    function setCrossMintYatFee(uint256 crossMintYatFee_) external onlyGov {
+        uint256 preCrossMintFee = _crossMintYatFee;
+        _crossMintYatFee = crossMintYatFee_;
+        emit SetCrossMintYatFee(preCrossMintFee, _crossMintYatFee);
+    }
+
     /// ***************************************
     /// *****LorenzoAdmin FUNCTIONS*****
     /// ***************************************
@@ -319,10 +328,14 @@ contract StakePlanHub is
             );
         }
 
+        if (stBTCAmount <= _crossMintYatFee) {
+            revert StakeAmountLessThanYatCrossMintFee();
+        }
+
         //mint stBTC
         IstBTCMintAuthority(_stBTCMintAuthorityAddress).mint(
             msg.sender,
-            stBTCAmount
+            stBTCAmount - _crossMintYatFee
         );
 
         uint256 stakeIndex = _stakeIndex++;
