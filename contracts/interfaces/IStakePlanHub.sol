@@ -6,12 +6,7 @@ pragma solidity 0.8.20;
  * @dev Interface of the ERC20 standard as defined in the EIP.
  */
 interface IStakePlanHub {
-    function createNewPlan(
-        string memory name_,
-        string memory symbol_,
-        address custodyAddress_,
-        uint256 stakePlanStartTime_
-    ) external returns (uint256);
+    function createNewPlan(uint256 planId_, address custodyAddress_) external;
 
     function setStakePlanAvailable(
         uint256 planId_,
@@ -22,18 +17,5 @@ interface IStakePlanHub {
         uint256 planId_,
         address btcContractAddress_,
         uint256 stakeAmount_
-    ) external;
-
-    function setMerkleRoot(
-        uint256 planId_,
-        uint256 roundId_,
-        bytes32 newMerkleRoot_
-    ) external;
-
-    function mintYATFromLorenzo(
-        uint256 planId_,
-        address[] calldata account_,
-        uint256[] calldata yatAmount_,
-        bytes32[] calldata hash_
-    ) external;
+    ) external payable;
 }

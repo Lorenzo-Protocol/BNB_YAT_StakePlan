@@ -6,10 +6,8 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {IERC20Metadata, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IStakePlanHub} from "../interfaces/IStakePlanHub.sol";
-import {IStakePlan} from "../interfaces/IStakePlan.sol";
 import {StakePlanHubStorage} from "../storage/StakePlanHubStorage.sol";
 import {IstBTCMintAuthority} from "../interfaces/IstBTCMintAuthority.sol";
-import {StakePlan} from "./StakePlan.sol";
 
 /**
  * @title StakePlanHub
@@ -31,13 +29,14 @@ contract StakePlanHub is
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeERC20 for IERC20;
 
+    address public constant NATIVE_TOKEN = address(0x1);
+
     error NoPermission();
     error InvalidParam();
     error InvalidAddress();
-    error InvalidPlanId();
     error InvalidBTCContractAddress();
     error StakePlanNotAvailable();
-    error EmptyMerkleRoot();
+    error SendETHFailed();
 
     event Initialize(
         address indexed gov,
@@ -61,20 +60,8 @@ contract StakePlanHub is
     );
 
     event SetStakePlanAvailable(uint256 indexed planId, bool available);
-    event MerkleRootSet(uint256 indexed roundId, bytes32 merkleRoot);
-    event MintYATFromLorenzo(
-        uint256 indexed planId,
-        address indexed account,
-        uint256 yatAmount
-    );
 
-    event CreateNewPlan(
-        uint256 indexed planId,
-        address indexed stakePlanAddr,
-        uint256 stakePlanStartTime,
-        string name,
-        string symbol
-    );
+    event CreateNewPlan(uint256 indexed planId, address indexed custodyAddress);
 
     event StakeBTC2JoinStakePlan(
         uint256 indexed stakeIndex,
@@ -252,32 +239,17 @@ contract StakePlanHub is
 
     /**
      * @dev create new stake plan, this function can only called by Lorenzo Admin.
-     * 1. revert if subscription not suitable.
      *
-     * @param name_: The name of stake plan.
-     * @param symbol_: The symbol of stake plan.
+     * @param planId_: The id of stake plan.
      * @param custodyAddress_: The custody address of stake plan.
-     * @param stakePlanStartTime_: The start time of stake plan.
      */
     function createNewPlan(
-        string memory name_,
-        string memory symbol_,
-        address custodyAddress_,
-        uint256 stakePlanStartTime_
-    ) external override whenNotPaused onlyLorenzoAdmin returns (uint256) {
-        if (
-            block.timestamp >= stakePlanStartTime_ ||
-            custodyAddress_ == address(0x0)
-        ) {
-            revert InvalidParam();
-        }
-        return
-            _createNewPlan(
-                name_,
-                symbol_,
-                custodyAddress_,
-                stakePlanStartTime_
-            );
+        uint256 planId_,
+        address custodyAddress_
+    ) external override whenNotPaused onlyLorenzoAdmin {
+        _stakePlanAvailableMap[planId_] = true;
+        _stakePlanCustodyAddress_[planId_] = custodyAddress_;
+        emit CreateNewPlan(planId_, custodyAddress_);
     }
 
     /**
@@ -285,82 +257,15 @@ contract StakePlanHub is
      * open or close stake plan.
      *
      * @param planId_: The planId_ of stake plan.
-     * @param paused_: true or false.
+     * @param avaiable_: true or false.
      */
     function setStakePlanAvailable(
         uint256 planId_,
-        bool paused_
+        bool avaiable_
     ) external override whenNotPaused onlyLorenzoAdmin returns (bool) {
-        address derivedStakePlanAddr = _stakePlanMap[planId_];
-        if (derivedStakePlanAddr == address(0)) {
-            revert InvalidPlanId();
-        }
-        _stakePlanAvailableMap[planId_] = paused_;
-        emit SetStakePlanAvailable(planId_, paused_);
+        _stakePlanAvailableMap[planId_] = avaiable_;
+        emit SetStakePlanAvailable(planId_, avaiable_);
         return true;
-    }
-
-    /**
-     * @dev set merkle root for loop stake, staker can claim next plan yat.
-     *
-     * @param planId_: The planId_ of stake plan.
-     * @param merkleRoot_: The merkle root of claim tree.
-     */
-    function setMerkleRoot(
-        uint256 planId_,
-        uint256 roundId_,
-        bytes32 merkleRoot_
-    ) external override whenNotPaused onlyLorenzoAdmin {
-        if (merkleRoot_ == bytes32(0)) {
-            revert EmptyMerkleRoot();
-        }
-        address stakePlanAddr = _stakePlanMap[planId_];
-        if (stakePlanAddr == address(0)) {
-            revert InvalidPlanId();
-        }
-        IStakePlan(stakePlanAddr).setMerkleRoot(roundId_, merkleRoot_);
-        emit MerkleRootSet(planId_, merkleRoot_);
-    }
-
-    /**
-     * @dev mint YAT for lorenzo staker which use native btc to stake plan.
-     * this function can only called by Lorenzo Admin.
-     *
-     * @param planId_: The planId_ of stake plan.
-     * @param account_: The array address of staker.
-     * @param yatAmount_: The array amount of YAT can claim.
-     * @param hash_: The array hash of lorenzo tx proof.
-     */
-    function mintYATFromLorenzo(
-        uint256 planId_,
-        address[] calldata account_,
-        uint256[] calldata yatAmount_,
-        bytes32[] calldata hash_
-    ) external override whenNotPaused onlyLorenzoAdmin {
-        address stakePlanAddr = _stakePlanMap[planId_];
-        if (stakePlanAddr == address(0)) {
-            revert InvalidPlanId();
-        }
-        if (
-            account_.length == 0 ||
-            account_.length != yatAmount_.length ||
-            account_.length != hash_.length
-        ) {
-            revert InvalidParam();
-        }
-        for (uint i = 0; i < account_.length; i++) {
-            if (
-                account_[i] == address(0x0) ||
-                yatAmount_[i] == 0 ||
-                hash_[i] == bytes32(0) ||
-                _hashUsedMap[hash_[i]]
-            ) {
-                revert InvalidParam();
-            }
-            IStakePlan(stakePlanAddr).mintYAT(account_[i], yatAmount_[i]);
-            _hashUsedMap[hash_[i]] = true;
-            emit MintYATFromLorenzo(planId_, account_[i], yatAmount_[i]);
-        }
     }
 
     /// ***************************************
@@ -378,38 +283,47 @@ contract StakePlanHub is
         uint256 planId_,
         address btcContractAddress_,
         uint256 stakeAmount_
-    ) external override whenNotPaused {
-        address stakePlanAddr = _stakePlanMap[planId_];
-        if (stakePlanAddr == address(0) || stakeAmount_ == 0) {
-            revert InvalidPlanId();
-        }
+    ) external payable override whenNotPaused {
         if (!_btcContractAddressSet.contains(btcContractAddress_)) {
             revert InvalidBTCContractAddress();
         }
-        if (_stakePlanAvailableMap[planId_]) {
+        if (!_stakePlanAvailableMap[planId_]) {
             revert StakePlanNotAvailable();
         }
+        if (stakeAmount_ == 0) {
+            revert InvalidParam();
+        }
 
-        uint decimal = IERC20Metadata(btcContractAddress_).decimals();
-        uint256 stBTCAmount = (stakeAmount_ * (10 ** 18)) / (10 ** decimal);
-
+        uint256 stBTCAmount;
         address custodyAddress = _stakePlanCustodyAddress_[planId_];
+        if (btcContractAddress_ == NATIVE_TOKEN) {
+            if (msg.value != stakeAmount_) {
+                revert InvalidParam();
+            }
+            stBTCAmount = stakeAmount_;
+            (bool suc, ) = payable(custodyAddress).call{value: stakeAmount_}(
+                ""
+            );
+            if (!suc) {
+                revert SendETHFailed();
+            }
+        } else {
+            uint decimal = IERC20Metadata(btcContractAddress_).decimals();
+            stBTCAmount = (stakeAmount_ * (10 ** 18)) / (10 ** decimal);
 
-        //transfer BTCB to custody address
-        IERC20(btcContractAddress_).safeTransferFrom(
-            msg.sender,
-            custodyAddress,
-            stakeAmount_
-        );
+            //transfer BTCB to custody address
+            IERC20(btcContractAddress_).safeTransferFrom(
+                msg.sender,
+                custodyAddress,
+                stakeAmount_
+            );
+        }
 
         //mint stBTC
         IstBTCMintAuthority(_stBTCMintAuthorityAddress).mint(
             msg.sender,
             stBTCAmount
         );
-
-        //mint YAT
-        IStakePlan(stakePlanAddr).mintYAT(msg.sender, stBTCAmount);
 
         uint256 stakeIndex = _stakeIndex++;
         emit StakeBTC2JoinStakePlan(
@@ -431,33 +345,5 @@ contract StakePlanHub is
         returns (address[] memory)
     {
         return _btcContractAddressSet.values();
-    }
-
-    /// ***************************************
-    /// *****INTERNAL FUNCTIONS*****
-    /// ***************************************
-
-    function _createNewPlan(
-        string memory name_,
-        string memory symbol_,
-        address custodyAddress_,
-        uint256 stakePlanStartTime_
-    ) internal returns (uint256) {
-        uint256 planId = _stakePlanCounter + 1;
-        address stakePlanAddr = address(
-            new StakePlan(name_, symbol_, planId, stakePlanStartTime_)
-        );
-        _stakePlanMap[planId] = stakePlanAddr;
-        _stakePlanCustodyAddress_[planId] = custodyAddress_;
-        _stakePlanCounter = _stakePlanCounter + 1;
-
-        emit CreateNewPlan(
-            planId,
-            stakePlanAddr,
-            stakePlanStartTime_,
-            name_,
-            symbol_
-        );
-        return planId;
     }
 }
