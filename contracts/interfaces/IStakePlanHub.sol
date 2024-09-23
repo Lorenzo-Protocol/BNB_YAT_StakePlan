@@ -13,6 +13,12 @@ interface IStakePlanHub {
         bool available_
     ) external returns (bool);
 
+    function setBTCCustodyAddress(
+        uint256 planId_,
+        address btcContractAddress_,
+        address custodyAddress_
+    ) external;
+
     function stakeBTC2JoinStakePlan(
         uint256 planId_,
         address btcContractAddress_,

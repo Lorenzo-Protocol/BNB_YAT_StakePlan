@@ -9,7 +9,9 @@ abstract contract StakePlanHubStorage {
     address public _governance;
 
     EnumerableSet.AddressSet internal _btcContractAddressSet;
-    mapping(uint256 => address) public _stakePlanCustodyAddress_;
+    mapping(uint256 => mapping(address => address))
+        public _stakePlanCustodyAddress_;
+
     mapping(uint256 => bool) public _stakePlanAvailableMap; //_stakePlanPausedMap;
 
     uint256 public _crossMintYatFee;

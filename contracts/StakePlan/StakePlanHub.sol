@@ -257,8 +257,26 @@ contract StakePlanHub is
         address custodyAddress_
     ) external override whenNotPaused onlyLorenzoAdmin {
         _stakePlanAvailableMap[planId_] = true;
-        _stakePlanCustodyAddress_[planId_] = custodyAddress_;
         emit CreateNewPlan(planId_, custodyAddress_);
+    }
+
+    function setBTCCustodyAddress(
+        uint256 planId_,
+        address btcContractAddress_,
+        address custodyAddress_
+    ) external override whenNotPaused onlyLorenzoAdmin {
+        if (!_stakePlanAvailableMap[planId_]) {
+            revert StakePlanNotAvailable();
+        }
+        if (!_btcContractAddressSet.contains(btcContractAddress_)) {
+            revert InvalidBTCContractAddress();
+        }
+        if (custodyAddress_ == address(0)) {
+            revert InvalidAddress();
+        }
+        _stakePlanCustodyAddress_[planId_][
+            btcContractAddress_
+        ] = custodyAddress_;
     }
 
     /**
@@ -304,7 +322,12 @@ contract StakePlanHub is
         }
 
         uint256 stBTCAmount;
-        address custodyAddress = _stakePlanCustodyAddress_[planId_];
+        address custodyAddress = _stakePlanCustodyAddress_[planId_][
+            btcContractAddress_
+        ];
+        if (custodyAddress == address(0)) {
+            revert InvalidAddress();
+        }
         if (btcContractAddress_ == NATIVE_TOKEN) {
             if (msg.value != stakeAmount_) {
                 revert InvalidParam();
