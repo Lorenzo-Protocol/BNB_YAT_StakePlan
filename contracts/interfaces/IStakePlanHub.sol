@@ -6,7 +6,11 @@ pragma solidity 0.8.20;
  * @dev Interface of the ERC20 standard as defined in the EIP.
  */
 interface IStakePlanHub {
-    function createNewPlan(uint256 planId_, address custodyAddress_) external;
+    function createNewPlan(
+        uint256 planId_,
+        address[] memory btcContractAddress_,
+        address[] memory custodyAddress_
+    ) external;
 
     function setStakePlanAvailable(
         uint256 planId_,

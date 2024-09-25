@@ -64,7 +64,13 @@ contract StakePlanHub is
 
     event SetStakePlanAvailable(uint256 indexed planId, bool available);
 
-    event CreateNewPlan(uint256 indexed planId, address indexed custodyAddress);
+    event CreateNewPlan(uint256 indexed planId);
+
+    event CustodyAddressSet(
+        uint256 indexed planId,
+        address indexed btcContractAddress,
+        address indexed custodyAddress
+    );
 
     event StakeBTC2JoinStakePlan(
         uint256 indexed stakeIndex,
@@ -194,10 +200,7 @@ contract StakePlanHub is
     ) external onlyGov {
         for (uint256 i = 0; i < btcContractAddress_.length; i++) {
             address btcContractAddress = btcContractAddress_[i];
-            if (
-                btcContractAddress == address(0) ||
-                btcContractAddress == address(0x1)
-            ) {
+            if (btcContractAddress == address(0)) {
                 revert InvalidAddress();
             }
             _btcContractAddressSet.add(btcContractAddress);
@@ -254,10 +257,34 @@ contract StakePlanHub is
      */
     function createNewPlan(
         uint256 planId_,
-        address custodyAddress_
+        address[] memory btcContractAddress_,
+        address[] memory custodyAddress_
     ) external override whenNotPaused onlyLorenzoAdmin {
         _stakePlanAvailableMap[planId_] = true;
-        emit CreateNewPlan(planId_, custodyAddress_);
+        if (
+            custodyAddress_.length == 0 ||
+            custodyAddress_.length != btcContractAddress_.length
+        ) {
+            revert InvalidParam();
+        }
+        for (uint256 i = 0; i < btcContractAddress_.length; i++) {
+            address btcContractAddress = btcContractAddress_[i];
+            address custodyAddress = custodyAddress_[i];
+
+            if (!_btcContractAddressSet.contains(btcContractAddress)) {
+                revert InvalidBTCContractAddress();
+            }
+            if (
+                btcContractAddress == address(0) || custodyAddress == address(0)
+            ) {
+                revert InvalidAddress();
+            }
+            _stakePlanCustodyAddress_[planId_][
+                btcContractAddress
+            ] = custodyAddress;
+            emit CustodyAddressSet(planId_, btcContractAddress, custodyAddress);
+        }
+        emit CreateNewPlan(planId_);
     }
 
     function setBTCCustodyAddress(
@@ -277,6 +304,7 @@ contract StakePlanHub is
         _stakePlanCustodyAddress_[planId_][
             btcContractAddress_
         ] = custodyAddress_;
+        emit CustodyAddressSet(planId_, btcContractAddress_, custodyAddress_);
     }
 
     /**
