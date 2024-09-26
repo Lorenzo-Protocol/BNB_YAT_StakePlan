@@ -7,16 +7,16 @@ import { BTCB__factory, StakePlanHub__factory } from '../typechain-types';
 const deployFn: DeployFunction = async (hre) => {
   const [deployer, stBTC_deployer, stake_planer] = await ethers.getSigners();
 
-  const proxyAddr = "0x5c23c303679D67fc78c9A204B1aB49232b464af1";
+  const proxyAddr = "";
 
   const stakePlanHub = StakePlanHub__factory.connect(proxyAddr)
-  const custodyAddress = "0x0534AbE62c23e6F2Dc2294C7b46E6340643346ae"
+  const Erc20BtcAddress = ""
+  const custodyAddress = ""
   
   const tx = await stakePlanHub.connect(deployer).createNewPlan(
-    "BabylonStakePlan-1",
-    "yat1-Babylon",
-    custodyAddress,
-    1724214336,
+    1,
+    [Erc20BtcAddress],
+    [custodyAddress],
   )
   await tx.wait();
 }

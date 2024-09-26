@@ -7,11 +7,8 @@ import {
 
 const deployFn: DeployFunction = async (hre) => {
   const [ deployer, stBTC_deployer, stake_planer ] = await ethers.getSigners();
-  console.log("deployer address: ", deployer.address)
-  console.log("stBTC_deployer address: ", stBTC_deployer.address)
-  console.log("stake_planer address: ", stake_planer.address)
   
-  const stBTCAddress = "0x2a45dE58552F2C5E0597d1FbB8eC83F7E2dDBa0D"
+  const stBTCAddress = ""
 
   await deployAndVerifyAndThen({
     hre,

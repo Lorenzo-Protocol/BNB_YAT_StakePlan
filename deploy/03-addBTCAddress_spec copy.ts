@@ -7,13 +7,18 @@ const deployFn: DeployFunction = async (hre) => {
   
   const [ deployer, stBTC_deployer ] = await ethers.getSigners();
 
-  const stakePlanHub_proxy = "0x5c23c303679D67fc78c9A204B1aB49232b464af1";
-  const MockBtcbAddress = "0x49fF00552CA23899ba9f814bCf7eD55bC5cDd9Ce";
+  const stakePlanHub_proxy = "";
+  const Erc20BtcAddress = "";
 
   const stakePlan_Hub = StakePlanHub__factory.connect(stakePlanHub_proxy)
-  const tx = await stakePlan_Hub.connect(deployer).addSupportBtcContractAddress([MockBtcbAddress]);
+
+  const tx0 = await stakePlan_Hub.connect(deployer).setCrossMintYatFee(ethers.parseEther("0.00003"));
+  await tx0.wait();
+  console.log('setCrossMintYatFee success')
+
+  const tx = await stakePlan_Hub.connect(deployer).addSupportBtcContractAddress([Erc20BtcAddress]);
   await tx.wait();
-  console.log('setNewMinterContract success')
+  console.log('addSupportBtcContractAddress success')
 }
 
 // This is kept during an upgrade. So no upgrade tag.
