@@ -408,8 +408,8 @@ contract StakePlanHub is
             stBTCAmount
         );
 
-        //mint YAT
-        IStakePlan(stakePlanAddr).mintYAT(msg.sender, stBTCAmount);
+        //remove mint YAT logic, will use merkle tree to claim YAT
+        //IStakePlan(stakePlanAddr).mintYAT(msg.sender, stBTCAmount);
 
         uint256 stakeIndex = _stakeIndex++;
         emit StakeBTC2JoinStakePlan(
